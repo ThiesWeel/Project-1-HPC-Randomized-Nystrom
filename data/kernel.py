@@ -14,6 +14,7 @@ import numpy as np
 
 def generate_features(global_indices, d, seed=42):
     """
+    NOTE: simple placeholder for MPI skeleton debugging.
     Generate deterministic feature vectors for given global indices.
     
     Each global index i produces the same feature vector x_i ∈ R^d

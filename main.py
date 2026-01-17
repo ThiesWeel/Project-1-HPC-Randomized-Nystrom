@@ -12,7 +12,17 @@ from mpi4py import MPI
 import sys
 import math
 import numpy as np
+import time
 from data.kernel import generate_features, rbf_kernel_block
+from data.sketch import generate_omega_block
+from nystrom import (
+    create_row_communicator,
+    create_col_communicator,
+    compute_nystrom_full_pipeline,
+    estimate_nuclear_norm_A,
+    compute_relative_error,
+    measure_time,
+)
 
 
 def validate_process_count(size):
@@ -196,6 +206,144 @@ def main():
         print("\n" + "=" * 80)
         print("Step 1 complete: Local kernel blocks constructed.")
         print("=" * 80)
+    
+    # ========================================================================
+    # Step 2: Sketching matrix Omega construction
+    # ========================================================================
+    
+    # Sketch dimension and target rank
+    l = 50   # Sketch dimension (k <= l << n)
+    k = 20   # Target rank for truncation
+    
+    # Generate local block of Omega (rows owned by this rank)
+    row_indices_range = range(row_start, row_end)
+    Omega_row_local = generate_omega_block(row_indices_range, l, seed=42)
+    
+    # Also generate Omega block for column indices (needed for A @ Omega)
+    col_indices_range = range(col_start, col_end)
+    Omega_col_block = generate_omega_block(col_indices_range, l, seed=42)
+    
+    # Print local Omega block shape
+    comm.Barrier()
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("Sketching Matrix Construction (Step 2)")
+        print("=" * 80)
+        print(f"Sketch dimension l = {l}")
+        print(f"Target rank k = {k}")
+        print("=" * 80)
+        print()
+    
+    for r in range(size):
+        if rank == r:
+            print(f"Rank {rank}: Omega_row_local shape = {Omega_row_local.shape}, "
+                  f"Omega_col_block shape = {Omega_col_block.shape}")
+            sys.stdout.flush()
+        comm.Barrier()
+    
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("Step 2 complete: Sketching matrix blocks constructed.")
+        print("=" * 80)
+    
+    # ========================================================================
+    # Create MPI communicators for row and column operations
+    # ========================================================================
+    
+    row_comm = create_row_communicator(comm, i, j, p)
+    col_comm = create_col_communicator(comm, i, j, p)
+    
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("MPI Communicators Created")
+        print("=" * 80)
+        print(f"Row communicator size: {row_comm.Get_size()}")
+        print(f"Column communicator size: {col_comm.Get_size()}")
+        print("=" * 80)
+    
+    # ========================================================================
+    # Steps 3-7: Full Nystrom Pipeline
+    # ========================================================================
+    
+    comm.Barrier()
+    t_start = measure_time(comm)
+    
+    U_k_local, Lambda_k, info = compute_nystrom_full_pipeline(
+        A_local=A_local,
+        Omega_row_local=Omega_row_local,
+        Omega_col_block=Omega_col_block,
+        k=k,
+        comm=comm,
+        row_comm=row_comm,
+        col_comm=col_comm,
+        verbose=True,
+        rank=rank,
+    )
+    
+    t_end = measure_time(comm)
+    elapsed = t_end - t_start
+    
+    comm.Barrier()
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("Nystrom Approximation Complete (Steps 3-7)")
+        print("=" * 80)
+        print(f"Y_local shape: {info['Y_local_shape']}")
+        print(f"B shape: {info['B_shape']}")
+        print(f"Z_local shape: {info['Z_local_shape']}")
+        print(f"U_k_local shape: {U_k_local.shape}")
+        print(f"Lambda_k (top {k} eigenvalues): {Lambda_k[:min(5, k)]}...")
+        print(f"Time elapsed: {elapsed:.4f} seconds")
+        print("=" * 80)
+    
+    # ========================================================================
+    # Step 8: Error computation
+    # ========================================================================
+    
+    # Compute nuclear norm of A (trace for SPSD)
+    is_diagonal_block = (i == j)
+    nuclear_norm_A = estimate_nuclear_norm_A(comm, A_local, is_diagonal_block, n)
+    
+    # Compute relative error
+    rel_error = compute_relative_error(nuclear_norm_A, Lambda_k, U_k_local, col_comm)
+    
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("Error Analysis (Step 8)")
+        print("=" * 80)
+        print(f"||A||_* (nuclear norm via trace): {nuclear_norm_A:.6f}")
+        print(f"||[[A_Nyst]]_k||_* (approx): {np.sum(Lambda_k):.6f}")
+        print(f"Relative error (approx): {rel_error:.6f}")
+        print("=" * 80)
+    
+    # ========================================================================
+    # Step 9: Performance summary
+    # ========================================================================
+    
+    # Gather timing from all ranks
+    all_times = comm.gather(elapsed, root=0)
+    
+    if rank == 0:
+        print("\n" + "=" * 80)
+        print("Performance Summary (Step 9)")
+        print("=" * 80)
+        print(f"Number of MPI processes: {size}")
+        print(f"Process grid: {p} x {p}")
+        print(f"Matrix dimension n = {n}")
+        print(f"Sketch dimension l = {l}")
+        print(f"Target rank k = {k}")
+        print(f"Feature dimension d = {d}")
+        print()
+        print(f"Max time across ranks: {max(all_times):.4f} seconds")
+        print(f"Min time across ranks: {min(all_times):.4f} seconds")
+        print(f"Avg time across ranks: {np.mean(all_times):.4f} seconds")
+        print("=" * 80)
+        print("\nRandomized Nystrom approximation complete!")
+        print("=" * 80)
+    
+    # Clean up communicators
+    row_comm.Free()
+    col_comm.Free()
 
 
 if __name__ == "__main__":
