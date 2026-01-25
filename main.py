@@ -148,14 +148,28 @@ def main():
     rank = comm.Get_rank()
     size = comm.Get_size()
     
+    # Parse command line arguments (basic - for full experiments use run_experiments.py)
+    import argparse
+    parser = argparse.ArgumentParser(description='Randomized Nystrom Demo')
+    parser.add_argument('--dataset', type=str, default='synthetic',
+                        choices=['mnist', 'year', 'synthetic'],
+                        help='Dataset to use')
+    parser.add_argument('--n', type=int, default=1000,
+                        help='Matrix dimension')
+    parser.add_argument('--sigma', type=float, default=None,
+                        help='Kernel bandwidth (auto-selected if not provided)')
+    parser.add_argument('--use-cache-blocking', action='store_true',
+                        help='Enable L2 cache blocking (tile=256)')
+    args = parser.parse_args()
+    
     # Validate that size is a perfect square
     p = validate_process_count(size)
     
     # Map rank to grid coordinates
     i, j = rank_to_grid_coords(rank, p)
     
-    # Global matrix dimension (can be modified or read from command line)
-    n = 1000  # Example: 1000 x 1000 matrix
+    # Global matrix dimension
+    n = args.n
     
     # Compute owned row and column ranges
     row_range = compute_block_range(i, p, n)
@@ -170,7 +184,18 @@ def main():
     
     # Feature dimension and RBF kernel bandwidth
     d = 10      # Feature dimension
-    sigma = 1.0 # RBF bandwidth parameter
+    
+    # Set sigma/c based on dataset (per project specifications)
+    if args.sigma is not None:
+        sigma = args.sigma
+    else:
+        # Auto-select based on dataset
+        if args.dataset == 'mnist':
+            sigma = 100.0  # c = 100 for MNIST
+        elif args.dataset == 'year':
+            sigma = 1e4    # c = 10,000 for YearPredictionMSD (can also use 1e5)
+        else:
+            sigma = 1.0    # Default for synthetic data
     
     # Generate feature vectors for local rows and columns
     row_start, row_end = row_range
@@ -182,8 +207,8 @@ def main():
     X_rows = generate_features(row_indices, d, seed=42)
     X_cols = generate_features(col_indices, d, seed=42)
     
-    # Compute local kernel block
-    A_local = rbf_kernel_block(X_rows, X_cols, sigma)
+    # Compute local kernel block with optional cache blocking
+    A_local = rbf_kernel_block(X_rows, X_cols, sigma, use_cache_blocking=args.use_cache_blocking)
     
     # Print local block shape
     comm.Barrier()
@@ -191,8 +216,10 @@ def main():
         print("\n" + "=" * 80)
         print("Local Kernel Block Construction (Step 1)")
         print("=" * 80)
+        print(f"Dataset: {args.dataset}")
+        print(f"Matrix dimension n = {n}")
         print(f"Feature dimension d = {d}")
-        print(f"RBF bandwidth sigma = {sigma}")
+        print(f"RBF bandwidth c (sigma) = {sigma}")
         print("=" * 80)
         print()
     

@@ -1,0 +1,94 @@
+[
+  {
+    "n": 5000,
+    "l": 1000,
+    "k": 100,
+    "chunk_size": 1000,
+    "explicit": {
+      "A": 0.2,
+      "Omega": 0.04,
+      "Y": 0.04,
+      "B": 0.008,
+      "peak_gb": 0.288
+    },
+    "streaming": {
+      "K_chunk": 0.04,
+      "Omega": 0.04,
+      "Y": 0.04,
+      "B": 0.008,
+      "peak_gb": 0.128
+    },
+    "explicit_peak_gb": 0.288,
+    "streaming_peak_gb": 0.128,
+    "savings_ratio": 2.25
+  },
+  {
+    "n": 20000,
+    "l": 1000,
+    "k": 100,
+    "chunk_size": 1000,
+    "explicit": {
+      "A": 3.2,
+      "Omega": 0.16,
+      "Y": 0.16,
+      "B": 0.008,
+      "peak_gb": 3.528
+    },
+    "streaming": {
+      "K_chunk": 0.16,
+      "Omega": 0.16,
+      "Y": 0.16,
+      "B": 0.008,
+      "peak_gb": 0.488
+    },
+    "explicit_peak_gb": 3.528,
+    "streaming_peak_gb": 0.488,
+    "savings_ratio": 7.229508196721311
+  },
+  {
+    "n": 50000,
+    "l": 1000,
+    "k": 100,
+    "chunk_size": 1000,
+    "explicit": {
+      "A": 20.0,
+      "Omega": 0.4,
+      "Y": 0.4,
+      "B": 0.008,
+      "peak_gb": 20.808
+    },
+    "streaming": {
+      "K_chunk": 0.4,
+      "Omega": 0.4,
+      "Y": 0.4,
+      "B": 0.008,
+      "peak_gb": 1.208
+    },
+    "explicit_peak_gb": 20.808,
+    "streaming_peak_gb": 1.208,
+    "savings_ratio": 17.225165562913908
+  },
+  {
+    "n": 100000,
+    "l": 1000,
+    "k": 100,
+    "chunk_size": 1000,
+    "explicit": {
+      "A": 80.0,
+      "Omega": 0.8,
+      "Y": 0.8,
+      "B": 0.008,
+      "peak_gb": 81.608
+    },
+    "streaming": {
+      "K_chunk": 0.8,
+      "Omega": 0.8,
+      "Y": 0.8,
+      "B": 0.008,
+      "peak_gb": 2.408
+    },
+    "explicit_peak_gb": 81.608,
+    "streaming_peak_gb": 2.408,
+    "savings_ratio": 33.89036544850498
+  }
+]
