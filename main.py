@@ -1,11 +1,9 @@
 """
-MPI Skeleton for Randomized Nyström Low-Rank Approximation
+Randomized Nyström low-rank approximation: MPI entry point.
 
-This module implements the distributed data layout for a randomized Nyström
-approximation of a dense symmetric positive semidefinite matrix.
-
-Current implementation: MPI process grid and block distribution only.
-Future work: RBF kernel construction, A @ Omega computation, Nyström truncation.
+Sets up the 2D process grid and block distribution, builds the RBF kernel
+blocks matrix-free, runs the distributed Nyström pipeline and reports the
+rank-k approximation error, runtime and memory per rank.
 """
 
 from mpi4py import MPI
@@ -148,7 +146,7 @@ def main():
     rank = comm.Get_rank()
     size = comm.Get_size()
     
-    # Parse command line arguments (basic - for full experiments use run_experiments.py)
+    # Parse command line arguments
     import argparse
     parser = argparse.ArgumentParser(description='Randomized Nystrom Demo')
     parser.add_argument('--dataset', type=str, default='synthetic',
